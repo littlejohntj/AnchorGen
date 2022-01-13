@@ -1,0 +1,80 @@
+// swiftlint:disable all
+// Generated using SwiftGen — https://github.com/SwiftGen/SwiftGen
+
+{% macro getType type %}{% if type.array %}[{% call handleArray type.array %}]{% endif %}{% if type.vec %}[{% call getType type.vec %}]{% endif %}{% if type.defined %}{{type.defined}}{% endif %}{% if type.option %}{% call getType type.option %}?{% endif %}{% if type == "string" %}String{% endif %}{% if type == "bool" %}Bool{% endif %}{% if type == "u8" %}UInt8{% endif %}{% if type == "u16" %}UInt16{% endif %}{% if type == "u32" %}UInt32{% endif %}{% if type == "u64" %}UInt64{% endif %}{% if type == "i8" %}Int8{% endif %}{% if type == "i16" %}Int16{% endif %}{% if type == "i32" %}Int32{% endif %}{% if type == "i64" %}Int64{% endif %}{% if type == "publicKey" %}SolanaSDK.PublicKey{% endif %}{% endmacro %}
+{% macro handleType type %}{% if type.type.kind == "struct" %}{% call handleStruct type %}{% endif %}{% if type.type.kind == "enum" %}{% call handleEnum type %}{% endif %}{% endmacro %}
+{% macro handleAccountType type %}{% if type.type.kind == "struct" %}{% call handleAccountStruct type %}{% endif %}{% if type.type.kind == "enum" %}{% call handleEnum type %}{% endif %}{% endmacro %}
+{% macro handleStruct struct %}public struct {{struct.name}}: DecodableBufferLayout {
+  {% for field in struct.type.fields %}
+    let {{field.name}}: {% call getType field.type %}
+  {% endfor %}
+  }
+{%endmacro%}
+{% macro handleAccountStruct struct %}public struct {{struct.name}}: DecodableBufferLayout {
+    let anchorAccountBuffer: Int64
+  {% for field in struct.type.fields %}
+    let {{field.name}}: {% call getType field.type %}
+  {% endfor %}
+  }
+{%endmacro%}
+{% macro handleBool bool %}{% if bool %}true{% else %}false{% endif %}{% endmacro %}
+{% macro handleEnum enum %}public enum {{enum.name}} {
+  {% for variant in enum.type.variants %}
+    case {{variant.name}}
+  {% endfor %}
+  }
+{%endmacro%}
+{% macro handleArray array %}{% call getType array.first %}{% endmacro %}
+
+{% if files %}
+{% set accessModifier %}{% if param.publicAccess %}public{% else %}internal{% endif %}{% endset %}
+import Foundation
+import SolanaSwift
+import AnchorKit
+import BufferLayoutSwift
+
+{% for file in files %}
+struct {{ file.document.data.name|snakeToCamelCase }} {
+
+    {% for instruction in file.document.data.instructions %}
+  static func {{instruction.name}}(
+    {% for arg in instruction.args %}
+      {{arg.name}}: {% call getType arg.type %},
+    {% endfor %}
+    {% for account in instruction.accounts %}
+      {{account.name}}: SolanaSDK.PublicKey,
+    {% endfor %}
+      programId: SolanaSDK.PublicKey
+  ) -> SolanaSDK.TransactionInstruction { 
+    let keys = [
+      {% for account in instruction.accounts %}
+        SolanaSDK.Account.Meta(publicKey: {{ account.name }}, isSigner: {% call handleBool account.isSigner %}, isWritable: {% call handleBool account.isMut %}), // {{ account.name }}
+      {% endfor %}
+    ]
+
+    
+    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "{{ instruction.name|camelToSnakeCase }}")
+
+    {% for arg in instruction.args %}
+    let {{arg.name}}Data = try! {{arg.name}}.serialize()
+    let {{arg.name}}Bytes = ({{arg.name}}Data as BytesEncodable).bytes
+    {% endfor %}
+    let instructionData: [UInt8] = sigHash{% if instruction.args %}{% for arg in instruction.args %} + {{arg.name}}Bytes{% endfor %}{% endif %}
+
+    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
+  }
+
+  {% endfor %}
+  {% for account in file.document.data.accounts %}
+    {% call handleAccountType account %}
+  
+    {% endfor %}
+  {% for type in file.document.data.types %}
+  {% call handleType type %}
+
+  {% endfor %}
+  {% endfor %}
+}
+  {% else %}
+  // No files found
+  {% endif %}
