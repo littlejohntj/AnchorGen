@@ -1,0 +1,106 @@
+{
+  "version": "0.0.0",
+  "name": "metadata_generator",
+  "instructions": [
+    {
+      "name": "createMetadataConfig",
+      "accounts": [
+        {
+          "name": "metadataConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "ix",
+          "type": {
+            "defined": "CreateMetadataConfigIx"
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "MetadataConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "programId",
+            "type": "publicKey"
+          },
+          {
+            "name": "seedPrefix",
+            "type": {
+              "option": "bytes"
+            }
+          },
+          {
+            "name": "seedPostfix",
+            "type": {
+              "option": "bytes"
+            }
+          },
+          {
+            "name": "fields",
+            "type": {
+              "vec": "string"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "CreateMetadataConfigIx",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "seedString",
+            "type": "string"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "programId",
+            "type": "publicKey"
+          },
+          {
+            "name": "seedPrefix",
+            "type": {
+              "option": "bytes"
+            }
+          },
+          {
+            "name": "seedPostfix",
+            "type": {
+              "option": "bytes"
+            }
+          },
+          {
+            "name": "fields",
+            "type": {
+              "vec": "string"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

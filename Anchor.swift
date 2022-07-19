@@ -7,236 +7,268 @@ import SolanaSwift
 import AnchorKit
 import BufferLayoutSwift
 
-struct NftCandyMachineV2 {
+struct Escrow {
 
-  static func mintNft(
-      creatorBump: UInt8,
-      candyMachine: SolanaSDK.PublicKey,
-      candyMachineCreator: SolanaSDK.PublicKey,
-      payer: SolanaSDK.PublicKey,
-      wallet: SolanaSDK.PublicKey,
-      metadata: SolanaSDK.PublicKey,
-      mint: SolanaSDK.PublicKey,
-      mintAuthority: SolanaSDK.PublicKey,
-      updateAuthority: SolanaSDK.PublicKey,
-      masterEdition: SolanaSDK.PublicKey,
-      tokenMetadataProgram: SolanaSDK.PublicKey,
+  fun placeBid(
+      bidAmount: UInt64,
+      bump: UInt8,
+      walletBump: UInt8,
+      expiryDate: Int64?,
+      bidder: SolanaSDK.PublicKey,
+      pdaBidderDataAccount: SolanaSDK.PublicKey,
+      pdaBidderDepositAccount: SolanaSDK.PublicKey,
+      escrowAccount: SolanaSDK.PublicKey,
+      systemProgram: SolanaSDK.PublicKey,
+      programId: SolanaSDK.PublicKey
+  ) -> SolanaSDK.TransactionInstruction { 
+    let keys = [
+        SolanaSDK.Account.Meta(publicKey: bidder, isSigner: true, isWritable: true), // bidder
+        SolanaSDK.Account.Meta(publicKey: pdaBidderDataAccount, isSigner: false, isWritable: true), // pdaBidderDataAccount
+        SolanaSDK.Account.Meta(publicKey: pdaBidderDepositAccount, isSigner: false, isWritable: true), // pdaBidderDepositAccount
+        SolanaSDK.Account.Meta(publicKey: escrowAccount, isSigner: false, isWritable: false), // escrowAccount
+        SolanaSDK.Account.Meta(publicKey: systemProgram, isSigner: false, isWritable: false), // systemProgram
+    ]
+
+    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "place_bid")
+
+    let bidAmountData = try! bidAmount.serialize()
+    let bidAmountBytes = (bidAmountData as BytesEncodable).bytes
+    let bumpData = try! bump.serialize()
+    let bumpBytes = (bumpData as BytesEncodable).bytes
+    let walletBumpData = try! walletBump.serialize()
+    let walletBumpBytes = (walletBumpData as BytesEncodable).bytes
+    let expiryDateData = try! expiryDate.serialize()
+    let expiryDateBytes = (expiryDateData as BytesEncodable).bytes
+    let instructionData: [UInt8] = sigHash + bidAmountBytes + bumpBytes + walletBumpBytes + expiryDateBytes
+
+    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
+  }
+
+  fun cancelBid(
+      bidder: SolanaSDK.PublicKey,
+      pdaBidderDataAccount: SolanaSDK.PublicKey,
+      pdaBidderDepositAccount: SolanaSDK.PublicKey,
       tokenProgram: SolanaSDK.PublicKey,
       systemProgram: SolanaSDK.PublicKey,
-      rent: SolanaSDK.PublicKey,
-      clock: SolanaSDK.PublicKey,
-      recentBlockhashes: SolanaSDK.PublicKey,
-      instructionSysvarAccount: SolanaSDK.PublicKey,
       programId: SolanaSDK.PublicKey
   ) -> SolanaSDK.TransactionInstruction { 
     let keys = [
-        SolanaSDK.Account.Meta(publicKey: candyMachine, isSigner: false, isWritable: true), // candyMachine
-        SolanaSDK.Account.Meta(publicKey: candyMachineCreator, isSigner: false, isWritable: false), // candyMachineCreator
-        SolanaSDK.Account.Meta(publicKey: payer, isSigner: true, isWritable: false), // payer
-        SolanaSDK.Account.Meta(publicKey: wallet, isSigner: false, isWritable: true), // wallet
-        SolanaSDK.Account.Meta(publicKey: metadata, isSigner: false, isWritable: true), // metadata
-        SolanaSDK.Account.Meta(publicKey: mint, isSigner: false, isWritable: true), // mint
-        SolanaSDK.Account.Meta(publicKey: mintAuthority, isSigner: true, isWritable: false), // mintAuthority
-        SolanaSDK.Account.Meta(publicKey: updateAuthority, isSigner: true, isWritable: false), // updateAuthority
-        SolanaSDK.Account.Meta(publicKey: masterEdition, isSigner: false, isWritable: true), // masterEdition
-        SolanaSDK.Account.Meta(publicKey: tokenMetadataProgram, isSigner: false, isWritable: false), // tokenMetadataProgram
+        SolanaSDK.Account.Meta(publicKey: bidder, isSigner: true, isWritable: true), // bidder
+        SolanaSDK.Account.Meta(publicKey: pdaBidderDataAccount, isSigner: false, isWritable: true), // pdaBidderDataAccount
+        SolanaSDK.Account.Meta(publicKey: pdaBidderDepositAccount, isSigner: false, isWritable: true), // pdaBidderDepositAccount
         SolanaSDK.Account.Meta(publicKey: tokenProgram, isSigner: false, isWritable: false), // tokenProgram
         SolanaSDK.Account.Meta(publicKey: systemProgram, isSigner: false, isWritable: false), // systemProgram
-        SolanaSDK.Account.Meta(publicKey: rent, isSigner: false, isWritable: false), // rent
-        SolanaSDK.Account.Meta(publicKey: clock, isSigner: false, isWritable: false), // clock
-        SolanaSDK.Account.Meta(publicKey: recentBlockhashes, isSigner: false, isWritable: false), // recentBlockhashes
-        SolanaSDK.Account.Meta(publicKey: instructionSysvarAccount, isSigner: false, isWritable: false), // instructionSysvarAccount
     ]
 
-    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "mint_nft")
-
-    let creatorBumpData = try! creatorBump.serialize()
-    let creatorBumpBytes = (creatorBumpData as BytesEncodable).bytes
-    let instructionData: [UInt8] = sigHash + creatorBumpBytes
-
-    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
-  }
-
-  static func updateCandyMachine(
-      data: CandyMachineData,
-      candyMachine: SolanaSDK.PublicKey,
-      authority: SolanaSDK.PublicKey,
-      wallet: SolanaSDK.PublicKey,
-      programId: SolanaSDK.PublicKey
-  ) -> SolanaSDK.TransactionInstruction { 
-    let keys = [
-        SolanaSDK.Account.Meta(publicKey: candyMachine, isSigner: false, isWritable: true), // candyMachine
-        SolanaSDK.Account.Meta(publicKey: authority, isSigner: true, isWritable: false), // authority
-        SolanaSDK.Account.Meta(publicKey: wallet, isSigner: false, isWritable: false), // wallet
-    ]
-
-    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "update_candy_machine")
-
-    let dataData = try! data.serialize()
-    let dataBytes = (dataData as BytesEncodable).bytes
-    let instructionData: [UInt8] = sigHash + dataBytes
-
-    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
-  }
-
-  static func addConfigLines(
-      index: UInt32,
-      configLines: [ConfigLine],
-      candyMachine: SolanaSDK.PublicKey,
-      authority: SolanaSDK.PublicKey,
-      programId: SolanaSDK.PublicKey
-  ) -> SolanaSDK.TransactionInstruction { 
-    let keys = [
-        SolanaSDK.Account.Meta(publicKey: candyMachine, isSigner: false, isWritable: true), // candyMachine
-        SolanaSDK.Account.Meta(publicKey: authority, isSigner: true, isWritable: false), // authority
-    ]
-
-    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "add_config_lines")
-
-    let indexData = try! index.serialize()
-    let indexBytes = (indexData as BytesEncodable).bytes
-    let configLinesData = try! configLines.serialize()
-    let configLinesBytes = (configLinesData as BytesEncodable).bytes
-    let instructionData: [UInt8] = sigHash + indexBytes + configLinesBytes
-
-    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
-  }
-
-  static func initializeCandyMachine(
-      data: CandyMachineData,
-      candyMachine: SolanaSDK.PublicKey,
-      wallet: SolanaSDK.PublicKey,
-      authority: SolanaSDK.PublicKey,
-      payer: SolanaSDK.PublicKey,
-      systemProgram: SolanaSDK.PublicKey,
-      rent: SolanaSDK.PublicKey,
-      programId: SolanaSDK.PublicKey
-  ) -> SolanaSDK.TransactionInstruction { 
-    let keys = [
-        SolanaSDK.Account.Meta(publicKey: candyMachine, isSigner: false, isWritable: true), // candyMachine
-        SolanaSDK.Account.Meta(publicKey: wallet, isSigner: false, isWritable: false), // wallet
-        SolanaSDK.Account.Meta(publicKey: authority, isSigner: false, isWritable: false), // authority
-        SolanaSDK.Account.Meta(publicKey: payer, isSigner: true, isWritable: false), // payer
-        SolanaSDK.Account.Meta(publicKey: systemProgram, isSigner: false, isWritable: false), // systemProgram
-        SolanaSDK.Account.Meta(publicKey: rent, isSigner: false, isWritable: false), // rent
-    ]
-
-    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "initialize_candy_machine")
-
-    let dataData = try! data.serialize()
-    let dataBytes = (dataData as BytesEncodable).bytes
-    let instructionData: [UInt8] = sigHash + dataBytes
-
-    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
-  }
-
-  static func updateAuthority(
-      newAuthority: SolanaSDK.PublicKey?,
-      candyMachine: SolanaSDK.PublicKey,
-      authority: SolanaSDK.PublicKey,
-      wallet: SolanaSDK.PublicKey,
-      programId: SolanaSDK.PublicKey
-  ) -> SolanaSDK.TransactionInstruction { 
-    let keys = [
-        SolanaSDK.Account.Meta(publicKey: candyMachine, isSigner: false, isWritable: true), // candyMachine
-        SolanaSDK.Account.Meta(publicKey: authority, isSigner: true, isWritable: false), // authority
-        SolanaSDK.Account.Meta(publicKey: wallet, isSigner: false, isWritable: false), // wallet
-    ]
-
-    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "update_authority")
-
-    let newAuthorityData = try! newAuthority.serialize()
-    let newAuthorityBytes = (newAuthorityData as BytesEncodable).bytes
-    let instructionData: [UInt8] = sigHash + newAuthorityBytes
-
-    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
-  }
-
-  static func withdrawFunds(
-      candyMachine: SolanaSDK.PublicKey,
-      authority: SolanaSDK.PublicKey,
-      programId: SolanaSDK.PublicKey
-  ) -> SolanaSDK.TransactionInstruction { 
-    let keys = [
-        SolanaSDK.Account.Meta(publicKey: candyMachine, isSigner: false, isWritable: true), // candyMachine
-        SolanaSDK.Account.Meta(publicKey: authority, isSigner: true, isWritable: false), // authority
-    ]
-
-    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "withdraw_funds")
+    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "cancel_bid")
 
     let instructionData: [UInt8] = sigHash
 
     return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
   }
 
-    public struct CandyMachine: DecodableBufferLayout {
+  fun acceptBid(
+      expectedBidAmount: UInt64,
+      initializer: SolanaSDK.PublicKey,
+      bidder: SolanaSDK.PublicKey,
+      pdaDepositTokenAccount: SolanaSDK.PublicKey,
+      pdaBidderDataAccount: SolanaSDK.PublicKey,
+      pdaBidderDepositAccount: SolanaSDK.PublicKey,
+      escrowAccount: SolanaSDK.PublicKey,
+      pdaAccount: SolanaSDK.PublicKey,
+      systemProgram: SolanaSDK.PublicKey,
+      tokenProgram: SolanaSDK.PublicKey,
+      platformFeesAccount: SolanaSDK.PublicKey,
+      metadataAccount: SolanaSDK.PublicKey,
+      programId: SolanaSDK.PublicKey
+  ) -> SolanaSDK.TransactionInstruction { 
+    let keys = [
+        SolanaSDK.Account.Meta(publicKey: initializer, isSigner: true, isWritable: false), // initializer
+        SolanaSDK.Account.Meta(publicKey: bidder, isSigner: false, isWritable: true), // bidder
+        SolanaSDK.Account.Meta(publicKey: pdaDepositTokenAccount, isSigner: false, isWritable: true), // pdaDepositTokenAccount
+        SolanaSDK.Account.Meta(publicKey: pdaBidderDataAccount, isSigner: false, isWritable: true), // pdaBidderDataAccount
+        SolanaSDK.Account.Meta(publicKey: pdaBidderDepositAccount, isSigner: false, isWritable: true), // pdaBidderDepositAccount
+        SolanaSDK.Account.Meta(publicKey: escrowAccount, isSigner: false, isWritable: true), // escrowAccount
+        SolanaSDK.Account.Meta(publicKey: pdaAccount, isSigner: true, isWritable: false), // pdaAccount
+        SolanaSDK.Account.Meta(publicKey: systemProgram, isSigner: false, isWritable: false), // systemProgram
+        SolanaSDK.Account.Meta(publicKey: tokenProgram, isSigner: false, isWritable: false), // tokenProgram
+        SolanaSDK.Account.Meta(publicKey: platformFeesAccount, isSigner: false, isWritable: true), // platformFeesAccount
+        SolanaSDK.Account.Meta(publicKey: metadataAccount, isSigner: false, isWritable: false), // metadataAccount
+    ]
+
+    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "accept_bid")
+
+    let expectedBidAmountData = try! expectedBidAmount.serialize()
+    let expectedBidAmountBytes = (expectedBidAmountData as BytesEncodable).bytes
+    let instructionData: [UInt8] = sigHash + expectedBidAmountBytes
+
+    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
+  }
+
+  fun initializeEscrow(
+      takerAmount: UInt64,
+      initializer: SolanaSDK.PublicKey,
+      initializerDepositTokenAccount: SolanaSDK.PublicKey,
+      escrowAccount: SolanaSDK.PublicKey,
+      tokenProgram: SolanaSDK.PublicKey,
+      programId: SolanaSDK.PublicKey
+  ) -> SolanaSDK.TransactionInstruction { 
+    let keys = [
+        SolanaSDK.Account.Meta(publicKey: initializer, isSigner: true, isWritable: false), // initializer
+        SolanaSDK.Account.Meta(publicKey: initializerDepositTokenAccount, isSigner: false, isWritable: true), // initializerDepositTokenAccount
+        SolanaSDK.Account.Meta(publicKey: escrowAccount, isSigner: false, isWritable: true), // escrowAccount
+        SolanaSDK.Account.Meta(publicKey: tokenProgram, isSigner: true, isWritable: false), // tokenProgram
+    ]
+
+    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "initialize_escrow")
+
+    let takerAmountData = try! takerAmount.serialize()
+    let takerAmountBytes = (takerAmountData as BytesEncodable).bytes
+    let instructionData: [UInt8] = sigHash + takerAmountBytes
+
+    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
+  }
+
+  fun initializeEscrow2(
+      takerAmount: UInt64,
+      escrowBump: UInt8,
+      initializer: SolanaSDK.PublicKey,
+      initializerDepositTokenAccount: SolanaSDK.PublicKey,
+      escrowAccount: SolanaSDK.PublicKey,
+      tokenProgram: SolanaSDK.PublicKey,
+      systemProgram: SolanaSDK.PublicKey,
+      programId: SolanaSDK.PublicKey
+  ) -> SolanaSDK.TransactionInstruction { 
+    let keys = [
+        SolanaSDK.Account.Meta(publicKey: initializer, isSigner: true, isWritable: false), // initializer
+        SolanaSDK.Account.Meta(publicKey: initializerDepositTokenAccount, isSigner: false, isWritable: true), // initializerDepositTokenAccount
+        SolanaSDK.Account.Meta(publicKey: escrowAccount, isSigner: false, isWritable: true), // escrowAccount
+        SolanaSDK.Account.Meta(publicKey: tokenProgram, isSigner: false, isWritable: false), // tokenProgram
+        SolanaSDK.Account.Meta(publicKey: systemProgram, isSigner: false, isWritable: false), // systemProgram
+    ]
+
+    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "initialize_escrow2")
+
+    let takerAmountData = try! takerAmount.serialize()
+    let takerAmountBytes = (takerAmountData as BytesEncodable).bytes
+    let escrowBumpData = try! escrowBump.serialize()
+    let escrowBumpBytes = (escrowBumpData as BytesEncodable).bytes
+    let instructionData: [UInt8] = sigHash + takerAmountBytes + escrowBumpBytes
+
+    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
+  }
+
+  fun cancelEscrow(
+      initializer: SolanaSDK.PublicKey,
+      pdaDepositTokenAccount: SolanaSDK.PublicKey,
+      pdaAccount: SolanaSDK.PublicKey,
+      escrowAccount: SolanaSDK.PublicKey,
+      tokenProgram: SolanaSDK.PublicKey,
+      programId: SolanaSDK.PublicKey
+  ) -> SolanaSDK.TransactionInstruction { 
+    let keys = [
+        SolanaSDK.Account.Meta(publicKey: initializer, isSigner: true, isWritable: false), // initializer
+        SolanaSDK.Account.Meta(publicKey: pdaDepositTokenAccount, isSigner: false, isWritable: true), // pdaDepositTokenAccount
+        SolanaSDK.Account.Meta(publicKey: pdaAccount, isSigner: false, isWritable: false), // pdaAccount
+        SolanaSDK.Account.Meta(publicKey: escrowAccount, isSigner: false, isWritable: true), // escrowAccount
+        SolanaSDK.Account.Meta(publicKey: tokenProgram, isSigner: false, isWritable: false), // tokenProgram
+    ]
+
+    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "cancel_escrow")
+
+    let instructionData: [UInt8] = sigHash
+
+    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
+  }
+
+  fun exchange2(
+      expectedTakerAmount: UInt64,
+      expectedMint: SolanaSDK.PublicKey,
+      taker: SolanaSDK.PublicKey,
+      pdaDepositTokenAccount: SolanaSDK.PublicKey,
+      initializerMainAccount: SolanaSDK.PublicKey,
+      escrowAccount: SolanaSDK.PublicKey,
+      pdaAccount: SolanaSDK.PublicKey,
+      systemProgram: SolanaSDK.PublicKey,
+      tokenProgram: SolanaSDK.PublicKey,
+      platformFeesAccount: SolanaSDK.PublicKey,
+      metadataAccount: SolanaSDK.PublicKey,
+      programId: SolanaSDK.PublicKey
+  ) -> SolanaSDK.TransactionInstruction { 
+    let keys = [
+        SolanaSDK.Account.Meta(publicKey: taker, isSigner: true, isWritable: false), // taker
+        SolanaSDK.Account.Meta(publicKey: pdaDepositTokenAccount, isSigner: false, isWritable: true), // pdaDepositTokenAccount
+        SolanaSDK.Account.Meta(publicKey: initializerMainAccount, isSigner: false, isWritable: true), // initializerMainAccount
+        SolanaSDK.Account.Meta(publicKey: escrowAccount, isSigner: false, isWritable: true), // escrowAccount
+        SolanaSDK.Account.Meta(publicKey: pdaAccount, isSigner: false, isWritable: false), // pdaAccount
+        SolanaSDK.Account.Meta(publicKey: systemProgram, isSigner: false, isWritable: false), // systemProgram
+        SolanaSDK.Account.Meta(publicKey: tokenProgram, isSigner: false, isWritable: false), // tokenProgram
+        SolanaSDK.Account.Meta(publicKey: platformFeesAccount, isSigner: false, isWritable: true), // platformFeesAccount
+        SolanaSDK.Account.Meta(publicKey: metadataAccount, isSigner: false, isWritable: false), // metadataAccount
+    ]
+
+    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "exchange2")
+
+    let expectedTakerAmountData = try! expectedTakerAmount.serialize()
+    let expectedTakerAmountBytes = (expectedTakerAmountData as BytesEncodable).bytes
+    let expectedMintData = try! expectedMint.serialize()
+    let expectedMintBytes = (expectedMintData as BytesEncodable).bytes
+    let instructionData: [UInt8] = sigHash + expectedTakerAmountBytes + expectedMintBytes
+
+    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
+  }
+
+  fun exchange(
+      taker: SolanaSDK.PublicKey,
+      pdaDepositTokenAccount: SolanaSDK.PublicKey,
+      initializerMainAccount: SolanaSDK.PublicKey,
+      escrowAccount: SolanaSDK.PublicKey,
+      pdaAccount: SolanaSDK.PublicKey,
+      systemProgram: SolanaSDK.PublicKey,
+      tokenProgram: SolanaSDK.PublicKey,
+      platformFeesAccount: SolanaSDK.PublicKey,
+      metadataAccount: SolanaSDK.PublicKey,
+      programId: SolanaSDK.PublicKey
+  ) -> SolanaSDK.TransactionInstruction { 
+    let keys = [
+        SolanaSDK.Account.Meta(publicKey: taker, isSigner: true, isWritable: false), // taker
+        SolanaSDK.Account.Meta(publicKey: pdaDepositTokenAccount, isSigner: false, isWritable: true), // pdaDepositTokenAccount
+        SolanaSDK.Account.Meta(publicKey: initializerMainAccount, isSigner: false, isWritable: true), // initializerMainAccount
+        SolanaSDK.Account.Meta(publicKey: escrowAccount, isSigner: false, isWritable: true), // escrowAccount
+        SolanaSDK.Account.Meta(publicKey: pdaAccount, isSigner: false, isWritable: false), // pdaAccount
+        SolanaSDK.Account.Meta(publicKey: systemProgram, isSigner: false, isWritable: false), // systemProgram
+        SolanaSDK.Account.Meta(publicKey: tokenProgram, isSigner: false, isWritable: false), // tokenProgram
+        SolanaSDK.Account.Meta(publicKey: platformFeesAccount, isSigner: false, isWritable: true), // platformFeesAccount
+        SolanaSDK.Account.Meta(publicKey: metadataAccount, isSigner: false, isWritable: false), // metadataAccount
+    ]
+
+    let sigHash: [UInt8] = AnchorKit.sighash(nameSpace: "global", name: "exchange")
+
+    let instructionData: [UInt8] = sigHash
+
+    return SolanaSDK.TransactionInstruction(keys: keys, programId: programId, data: instructionData)
+  }
+
+  public struct BidAccount: DecodableBufferLayout {
     let anchorAccountBuffer: Int64
-    let authority: SolanaSDK.PublicKey
-    let wallet: SolanaSDK.PublicKey
-    let tokenMint: SolanaSDK.PublicKey?
-    let itemsRedeemed: UInt64
-    let data: CandyMachineData
-  }
-  public struct WhitelistMintSettings: DecodableBufferLayout {
-    let mode: WhitelistMintMode
-    let mint: SolanaSDK.PublicKey
-    let presale: Bool
-    let discountPrice: UInt64?
-  }
+    let bidderKey: SolanaSDK.PublicKey
+    let bidAmount: UInt64
+    let escrowKey: SolanaSDK.PublicKey
+    let bump: UInt8
+    let walletBump: UInt8
+    let initializerKey: SolanaSDK.PublicKey
+    let initializerDepositTokenAccount: SolanaSDK.PublicKey
+    let expiryDate: Int64?
 
-  public struct CandyMachineData: DecodableBufferLayout {
-    let uuid: String
-    let price: UInt64
-    let symbol: String
-    let sellerFeeBasisPoints: UInt16
-    let maxSupply: UInt64
-    let isMutable: Bool
-    let retainAuthority: Bool
-    let goLiveDate: Int64?
-    let endSettings: EndSettings?
-    let creators: [Creator]
-    let hiddenSettings: HiddenSettings?
-    let whitelistMintSettings: WhitelistMintSettings?
-    let itemsAvailable: UInt64
-    let gatekeeper: GatekeeperConfig?
+    public static var optionalPropertyNames: [String] = ["expiryDate"]
   }
+  public struct EscrowAccount: DecodableBufferLayout {
+    let anchorAccountBuffer: Int64
+    let initializerKey: SolanaSDK.PublicKey
+    let initializerDepositTokenAccount: SolanaSDK.PublicKey
+    let takerAmount: UInt64
 
-  public struct GatekeeperConfig: DecodableBufferLayout {
-    let gatekeeperNetwork: SolanaSDK.PublicKey
-    let expireOnUse: Bool
+    public static var optionalPropertyNames: [String] = []
   }
-
-  public struct EndSettings: DecodableBufferLayout {
-    let endSettingType: EndSettingType
-    let number: UInt64
-  }
-
-  public struct HiddenSettings: DecodableBufferLayout {
-    let name: String
-    let uri: String
-    let hash: [UInt8]
-  }
-
-  public struct ConfigLine: DecodableBufferLayout {
-    let name: String
-    let uri: String
-  }
-
-  public struct Creator: DecodableBufferLayout {
-    let address: SolanaSDK.PublicKey
-    let verified: Bool
-    let share: UInt8
-  }
-
-  public enum WhitelistMintMode {
-    case BurnEveryTime
-    case NeverBurn
-  }
-
-  public enum EndSettingType {
-    case Date
-    case Amount
-  }
-
 }
   
